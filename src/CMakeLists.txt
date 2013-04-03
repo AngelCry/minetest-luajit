@@ -180,10 +180,17 @@ if(USE_FREETYPE)
 	set(CGUITTFONT_LIBRARY cguittfont)
 endif(USE_FREETYPE)
 
+OPTION(USE_LUAJIT "Use LuaJIT instead Lua" 1)
+
 # Do not use system-wide installation of Lua, because it'll likely be a
 # different version and/or has different build options.
-set(LUA_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/luaJIT/src")
-set(LUA_LIBRARY "luajit")
+if(USE_LUAJIT)
+	set(LUA_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/luaJIT/src")
+	set(LUA_LIBRARY "luajit")
+else(USE_LUAJIT)
+	set(LUA_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/lua/src")
+	set(LUA_LIBRARY "lua")
+endif(USE_LUAJIT)
 
 configure_file(
 	"${PROJECT_SOURCE_DIR}/cmake_config.h.in"

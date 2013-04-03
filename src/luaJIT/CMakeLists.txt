@@ -5,8 +5,6 @@ cmake_minimum_required(VERSION 2.4 FATAL_ERROR)
 
 project(luaJIT C)
 
-#set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-
 set(COMMON_CFLAGS)
 set(COMMON_LDFLAGS)
 set(LIBS)
@@ -60,6 +58,9 @@ else()
 endif()
 mark_as_advanced(LUAJIT_ANSI)
 
+option ( LUAJIT_DISABLE_FFI "Disable FFI." OFF )
+option ( LUAJIT_DISABLE_JIT "Disable JIT." OFF )
+
 #
 # Lua version
 #
@@ -109,23 +110,44 @@ if(CMAKE_COMPILER_IS_GNUCC)
 	set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_WITHDEBINFO} -O2 -g")
 endif(CMAKE_COMPILER_IS_GNUCC)
 
-file ( GLOB SRC_LIB src/lib_*.c )
-if ( LUAJIT_USE_RELATIVE_LOADLIB )
-  list ( REMOVE_ITEM SRC_LIB ${CMAKE_CURRENT_SOURCE_DIR}/src/lib_package.c )
-else ()
-  list ( REMOVE_ITEM SRC_LIB ${CMAKE_CURRENT_SOURCE_DIR}/src/lib_package_rel.c )
-endif ()
+set(LUAJIT_LIB_SRC
+	src/lib_base.c
+	src/lib_bit.c
+	src/lib_debug.c
+	src/lib_ffi.c
+	src/lib_io.c
+	src/lib_jit.c
+	src/lib_math.c
+	src/lib_os.c
+	src/lib_package.c
+	src/lib_string.c
+	src/lib_table.c
+)
 
 # Build minilua
+
 add_executable ( minilua src/host/minilua.c )
 target_link_libraries ( minilua ${LIBS} )
 
 # Dynasm
 set ( DASM ${CMAKE_CURRENT_SOURCE_DIR}/dynasm/dynasm.lua )
 set ( DASM_T ${CMAKE_CURRENT_SOURCE_DIR}/src/host/buildvm_arch.h )
-
-set ( DASM_FLAGS "-LN" "-D" "WIN" "-D" "JIT" "-D" "FFI" "-D" "P64")
 set ( DASM_DASC ${CMAKE_CURRENT_SOURCE_DIR}/src/vm_x86.dasc )
+
+set ( DASM_FLAGS -LN )
+
+if(WIN32)
+	set ( DASM_FLAGS ${DASM_FLAGS} -D WIN )
+endif(WIN32)
+if ("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
+	set ( DASM_FLAGS ${DASM_FLAGS} -D P64 )
+endif()
+if(NOT LUAJIT_DISABLE_FFI)
+	set ( DASM_FLAGS ${DASM_FLAGS} -D FFI )
+endif(NOT LUAJIT_DISABLE_FFI)
+if(NOT LUAJIT_DISABLE_JIT)
+	set ( DASM_FLAGS ${DASM_FLAGS} -D JIT )
+endif(NOT LUAJIT_DISABLE_JIT)
 
 # Generate buildvm arch header
 
@@ -136,8 +158,16 @@ add_custom_command(OUTPUT ${DASM_T}
 )
 
 # Buildvm
-file ( GLOB SRC_BUILDVM src/host/buildvm*.c )
-add_executable ( buildvm ${SRC_BUILDVM} ${DASM_T} )
+
+set(BUILDVM_SRC
+	src/host/buildvm.c
+	src/host/buildvm_asm.c
+	src/host/buildvm_fold.c
+	src/host/buildvm_lib.c
+	src/host/buildvm_peobj.c
+)
+
+add_executable ( buildvm ${BUILDVM_SRC} ${DASM_T} )
 
 macro(add_buildvm_target _target _mode)
   add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${_target}
@@ -154,12 +184,13 @@ else ()
   add_buildvm_target ( lj_vm.s ${LJVM_MODE} )
   set (LJ_VM_SRC ${CMAKE_CURRENT_BINARY_DIR}/lj_vm.s)
 endif ()
-add_buildvm_target ( lj_ffdef.h   ffdef   ${SRC_LIB} )
-add_buildvm_target ( lj_bcdef.h  bcdef  ${SRC_LIB} )
-add_buildvm_target ( lj_folddef.h folddef src/lj_opt_fold.c )
-add_buildvm_target ( lj_recdef.h  recdef  ${SRC_LIB} )
-add_buildvm_target ( lj_libdef.h  libdef  ${SRC_LIB} )
-add_buildvm_target ( jit/vmdef.lua  libvm  ${SRC_LIB} )
+
+add_buildvm_target ( lj_bcdef.h     bcdef   ${LUAJIT_LIB_SRC} )
+add_buildvm_target ( lj_ffdef.h     ffdef   ${LUAJIT_LIB_SRC} )
+add_buildvm_target ( lj_libdef.h    libdef  ${LUAJIT_LIB_SRC} )
+add_buildvm_target ( lj_recdef.h    recdef  ${LUAJIT_LIB_SRC} )
+add_buildvm_target ( jit/vmdef.lua  libvm   ${LUAJIT_LIB_SRC} )
+add_buildvm_target ( lj_folddef.h   folddef src/lj_opt_fold.c )
 
 set(LUAJIT_LIB_HEADERS
 	${CMAKE_CURRENT_BINARY_DIR}/lj_ffdef.h
@@ -169,19 +200,7 @@ set(LUAJIT_LIB_HEADERS
 	${CMAKE_CURRENT_BINARY_DIR}/lj_folddef.h
 )
 
-set(LUAJIT_LIB_SRC
-	src/lib_base.c
-	src/lib_math.c
-	src/lib_bit.c
-	src/lib_string.c
-	src/lib_table.c
-	src/lib_io.c
-	src/lib_os.c
-	src/lib_package.c
-	src/lib_debug.c
-	src/lib_jit.c
-	src/lib_ffi.c
-)
+set(LUAJIT_LIB_SRC ${LUAJIT_LIB_SRC} src/lib_aux.c src/lib_init.c)
 
 set(LUAJIT_CORE_SRC
 	src/lj_alloc.c
@@ -234,13 +253,10 @@ set(LUAJIT_CORE_SRC
 	src/lj_vmmath.c
 )
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}
-				${CMAKE_CURRENT_BINARY_DIR} dynasm src src/host )
-
 #
 # Lua library.
 #
-add_library(luajit STATIC ${LUAJIT_LIB_SRC} ${LUAJIT_CORE_SRC} ${LJ_VM_SRC} ${SRC_LIB} ${LUAJIT_LIB_HEADERS})
+add_library(luajit STATIC ${LUAJIT_LIB_SRC} ${LUAJIT_CORE_SRC} ${LJ_VM_SRC} ${LUAJIT_LIB_HEADERS})
 target_link_libraries(luajit ${LIBS})
 set(LUAJIT_STATIC_LIB luajit)
 set(LUAJIT_LIBS luajit)
@@ -250,9 +266,3 @@ set_target_properties(${LUAJIT_LIBS} PROPERTIES
 	SOVERSION ${LUAJIT_SOVERSION}
 	CLEAN_DIRECT_OUTPUT 1
 )
-
-#
-# sub-folders
-#
-
-
