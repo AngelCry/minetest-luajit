@@ -3,9 +3,9 @@
 #
 cmake_minimum_required(VERSION 2.4 FATAL_ERROR)
 
-project(luaJIT C ASM)
+project(luaJIT C)
 
-set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+#set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 set(COMMON_CFLAGS)
 set(COMMON_LDFLAGS)
@@ -17,13 +17,13 @@ if(APPLE)
 	set(DEFAULT_POSIX TRUE)
 	set(DEFAULT_DLOPEN ON)
 	# use this on Mac OS X 10.3-
-	option(LUA_USE_MACOSX "Mac OS X 10.3-" OFF)
+	option(LUAJIT_USE_MACOSX "Mac OS X 10.3-" OFF)
 elseif(CYGWIN)
 	set(DEFAULT_POSIX TRUE)
 elseif(UNIX)
 	set(DEFAULT_POSIX TRUE)
 elseif(WIN32)
-	set(LUA_WIN TRUE)
+	set(LUAJIT_WIN TRUE)
 	set(COMMON_CFLAGS "${COMMON_CFLAGS} -DLUA_BUILD_AS_DLL")
 else()
 	set(DEFAULT_ANSI TRUE)
@@ -43,33 +43,33 @@ else()
 endif()
 
 if(DEFAULT_DLOPEN)
-	option(LUA_USE_DLOPEN "Enable dlopen support." ON)
+	option(LUAJIT_USE_DLOPEN "Enable dlopen support." ON)
 else()
-	option(LUA_USE_DLOPEN "Enable dlopen support." OFF)
+	option(LUAJIT_USE_DLOPEN "Enable dlopen support." OFF)
 endif()
-mark_as_advanced(LUA_USE_DLOPEN)
+mark_as_advanced(LUAJIT_USE_DLOPEN)
 
 if(DEFAULT_POSIX)
 else()
 endif()
 
 if(DEFAULT_ANSI)
-	option(LUA_ANSI "Disable non-ansi features." ON)
+	option(LUAJIT_ANSI "Disable non-ansi features." ON)
 else()
-	option(LUA_ANSI "Disable non-ansi features." OFF)
+	option(LUAJIT_ANSI "Disable non-ansi features." OFF)
 endif()
-mark_as_advanced(LUA_ANSI)
+mark_as_advanced(LUAJIT_ANSI)
 
 #
 # Lua version
 #
-set(LUA_VERSION_MAJOR 2)
-set(LUA_VERSION_MINOR 0)
-set(LUA_VERSION_PATCH 1)
-set(LUA_VERSION
-				"${LUA_VERSION_MAJOR}.${LUA_VERSION_MINOR}.${LUA_VERSION_PATCH}")
-set(LUA_SOVERSION
-				"${LUA_VERSION_MAJOR}")
+set(LUAJIT_VERSION_MAJOR 2)
+set(LUAJIT_VERSION_MINOR 0)
+set(LUAJIT_VERSION_PATCH 1)
+set(LUAJIT_VERSION
+				"${LUAJIT_VERSION_MAJOR}.${LUAJIT_VERSION_MINOR}.${LUAJIT_VERSION_PATCH}")
+set(LUAJIT_SOVERSION
+				"${LUAJIT_VERSION_MAJOR}")
 
 #
 # libs & cflags
@@ -77,21 +77,21 @@ set(LUA_SOVERSION
 set(COMMON_LDFLAGS "${COMMON_LDFLAGS}")
 
 # For "Mac OS X 10.3-"
-if(LUA_USE_MACOSX)
+if(LUAJIT_USE_MACOSX)
 	set(COMMON_CFLAGS "${COMMON_CFLAGS} -DLUA_USE_MACOSX")
-	set(LUA_USE_DLOPEN FALSE)
-endif(LUA_USE_MACOSX)
+	set(LUAJIT_USE_DLOPEN FALSE)
+endif(LUAJIT_USE_MACOSX)
 
-if(LUA_USE_DLOPEN)
+if(LUAJIT_USE_DLOPEN)
 	set(COMMON_CFLAGS "${COMMON_CFLAGS} -DLUA_USE_DLOPEN")
 	if(NOT APPLE)
 		set(COMMON_LDFLAGS "${COMMON_LDFLAGS} -ldl ")
 	endif(NOT APPLE)
-endif(LUA_USE_DLOPEN)
+endif(LUAJIT_USE_DLOPEN)
 
-if(LUA_ANSI)
+if(LUAJIT_ANSI)
 	set(COMMON_CFLAGS "${COMMON_CFLAGS} -DLUA_ANSI")
-endif(LUA_ANSI)
+endif(LUAJIT_ANSI)
 
 #
 # COMMON_CFLAGS has no effect without this line
@@ -110,7 +110,7 @@ if(CMAKE_COMPILER_IS_GNUCC)
 endif(CMAKE_COMPILER_IS_GNUCC)
 
 file ( GLOB SRC_LIB src/lib_*.c )
-if ( LUA_USE_RELATIVE_LOADLIB )
+if ( LUAJIT_USE_RELATIVE_LOADLIB )
   list ( REMOVE_ITEM SRC_LIB ${CMAKE_CURRENT_SOURCE_DIR}/src/lib_package.c )
 else ()
   list ( REMOVE_ITEM SRC_LIB ${CMAKE_CURRENT_SOURCE_DIR}/src/lib_package_rel.c )
@@ -169,7 +169,7 @@ set(LUAJIT_LIB_HEADERS
 	${CMAKE_CURRENT_BINARY_DIR}/lj_folddef.h
 )
 
-set(LUAJIT_CORE_SRC
+set(LUAJIT_LIB_SRC
 	src/lib_base.c
 	src/lib_math.c
 	src/lib_bit.c
@@ -183,20 +183,71 @@ set(LUAJIT_CORE_SRC
 	src/lib_ffi.c
 )
 
+set(LUAJIT_CORE_SRC
+	src/lj_alloc.c
+	src/lj_api.c
+	src/lj_asm.c
+	src/lj_bc.c
+	src/lj_bcread.c
+	src/lj_bcwrite.c
+	src/lj_carith.c
+	src/lj_ccall.c
+	src/lj_ccallback.c
+	src/lj_cconv.c
+	src/lj_cdata.c
+	src/lj_char.c
+	src/lj_clib.c
+	src/lj_cparse.c
+	src/lj_crecord.c
+	src/lj_ctype.c
+	src/lj_debug.c
+	src/lj_dispatch.c
+	src/lj_err.c
+	src/lj_ffrecord.c
+	src/lj_func.c
+	src/lj_gc.c
+	src/lj_gdbjit.c
+	src/lj_ir.c
+	src/lj_lex.c
+	src/lj_lib.c
+	src/lj_load.c
+	src/lj_mcode.c
+	src/lj_meta.c
+	src/lj_obj.c
+	src/lj_opt_dce.c
+	src/lj_opt_fold.c
+	src/lj_opt_loop.c
+	src/lj_opt_mem.c
+	src/lj_opt_narrow.c
+	src/lj_opt_sink.c
+	src/lj_opt_split.c
+	src/lj_parse.c
+	src/lj_record.c
+	src/lj_snap.c
+	src/lj_state.c
+	src/lj_str.c
+	src/lj_strscan.c
+	src/lj_tab.c
+	src/lj_trace.c
+	src/lj_udata.c
+	src/lj_vmevent.c
+	src/lj_vmmath.c
+)
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}
 				${CMAKE_CURRENT_BINARY_DIR} dynasm src src/host )
 
 #
 # Lua library.
 #
-add_library(luajit STATIC ${LUAJIT_CORE_SRC} ${SRC_LIB} ${LUAJIT_LIB_HEADERS})
+add_library(luajit STATIC ${LUAJIT_LIB_SRC} ${LUAJIT_CORE_SRC} ${LJ_VM_SRC} ${SRC_LIB} ${LUAJIT_LIB_HEADERS})
 target_link_libraries(luajit ${LIBS})
-set(LUA_STATIC_LIB luajit)
-set(LUA_LIBS luajit)
+set(LUAJIT_STATIC_LIB luajit)
+set(LUAJIT_LIBS luajit)
 
-set_target_properties(${LUA_LIBS} PROPERTIES
-	VERSION ${LUA_VERSION}
-	SOVERSION ${LUA_SOVERSION}
+set_target_properties(${LUAJIT_LIBS} PROPERTIES
+	VERSION ${LUAJIT_VERSION}
+	SOVERSION ${LUAJIT_SOVERSION}
 	CLEAN_DIRECT_OUTPUT 1
 )
 
